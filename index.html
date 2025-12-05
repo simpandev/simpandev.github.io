@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Museum Audio Guide</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        header p {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .museum-map-container {
+            background-color: white;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .museum-map-container h2 {
+            text-align: center;
+            margin-bottom: 1rem;
+            color: #2c3e50;
+            font-size: 1.2rem;
+        }
+
+        .museum-map {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            display: block;
+        }
+
+        .museum-map .room {
+            cursor: pointer;
+            transition: fill 0.2s ease, transform 0.1s ease;
+        }
+
+        .museum-map .room:hover {
+            filter: brightness(1.1);
+        }
+
+        .museum-map .room:active {
+            filter: brightness(0.95);
+        }
+
+        .museum-map .room.playing {
+            stroke: #e74c3c;
+            stroke-width: 4;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { stroke-opacity: 1; }
+            50% { stroke-opacity: 0.5; }
+        }
+
+        .museum-map .room-label {
+            pointer-events: none;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-weight: 600;
+        }
+
+        .audio-player {
+            background-color: #2c3e50;
+            color: white;
+            padding: 1rem;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: none;
+            flex-direction: column;
+            gap: 0.5rem;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+        }
+
+        .audio-player.visible {
+            display: flex;
+        }
+
+        .audio-player .track-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .audio-player .track-name {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .audio-player .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            opacity: 0.8;
+        }
+
+        .audio-player .close-btn:hover {
+            opacity: 1;
+        }
+
+        .audio-player audio {
+            width: 100%;
+        }
+
+        .content {
+            padding: 1rem;
+            padding-bottom: 120px;
+        }
+
+        .room-list {
+            max-width: 600px;
+            margin: 1rem auto;
+        }
+
+        .room-list h3 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .room-item {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+
+        .room-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .room-item:active {
+            transform: translateY(0);
+        }
+
+        .room-item .room-color {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+
+        .room-item .room-info {
+            flex: 1;
+        }
+
+        .room-item .room-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .room-item .room-description {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .room-item .play-icon {
+            color: #2c3e50;
+            font-size: 1.5rem;
+        }
+
+        .instructions {
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🏛️ Museum Audio Guide</h1>
+        <p>Tap on a room to start the audio tour</p>
+    </header>
+
+    <div class="museum-map-container">
+        <h2>Museum Floor Plan</h2>
+        <svg class="museum-map" viewBox="0 0 400 300" role="img" aria-label="Interactive museum floor plan">
+            <!-- Room 1: Entrance Hall -->
+            <rect class="room" id="room-entrance" x="150" y="220" width="100" height="60" fill="#3498db" rx="4" 
+                  role="button" tabindex="0" aria-label="Entrance Hall - Tap to play audio guide"
+                  data-room="entrance" data-track="Welcome to the Museum"/>
+            <text class="room-label" x="200" y="255" text-anchor="middle" fill="white" font-size="12">Entrance</text>
+
+            <!-- Room 2: Ancient Art -->
+            <rect class="room" id="room-ancient" x="20" y="120" width="120" height="80" fill="#9b59b6" rx="4"
+                  role="button" tabindex="0" aria-label="Ancient Art Gallery - Tap to play audio guide"
+                  data-room="ancient" data-track="Ancient Art Gallery"/>
+            <text class="room-label" x="80" y="165" text-anchor="middle" fill="white" font-size="12">Ancient Art</text>
+
+            <!-- Room 3: Modern Art -->
+            <rect class="room" id="room-modern" x="260" y="120" width="120" height="80" fill="#e67e22" rx="4"
+                  role="button" tabindex="0" aria-label="Modern Art Gallery - Tap to play audio guide"
+                  data-room="modern" data-track="Modern Art Gallery"/>
+            <text class="room-label" x="320" y="165" text-anchor="middle" fill="white" font-size="12">Modern Art</text>
+
+            <!-- Room 4: Sculpture Hall -->
+            <rect class="room" id="room-sculpture" x="150" y="120" width="100" height="80" fill="#1abc9c" rx="4"
+                  role="button" tabindex="0" aria-label="Sculpture Hall - Tap to play audio guide"
+                  data-room="sculpture" data-track="Sculpture Hall"/>
+            <text class="room-label" x="200" y="165" text-anchor="middle" fill="white" font-size="12">Sculpture</text>
+
+            <!-- Room 5: Special Exhibition -->
+            <rect class="room" id="room-special" x="100" y="20" width="200" height="80" fill="#e74c3c" rx="4"
+                  role="button" tabindex="0" aria-label="Special Exhibition - Tap to play audio guide"
+                  data-room="special" data-track="Special Exhibition"/>
+            <text class="room-label" x="200" y="65" text-anchor="middle" fill="white" font-size="12">Special Exhibition</text>
+
+            <!-- Corridors/connections (decorative) -->
+            <line x1="200" y1="220" x2="200" y2="200" stroke="#ccc" stroke-width="2"/>
+            <line x1="140" y1="160" x2="150" y2="160" stroke="#ccc" stroke-width="2"/>
+            <line x1="250" y1="160" x2="260" y2="160" stroke="#ccc" stroke-width="2"/>
+            <line x1="200" y1="120" x2="200" y2="100" stroke="#ccc" stroke-width="2"/>
+        </svg>
+        <p class="instructions">Tap any room on the map to hear its audio guide</p>
+    </div>
+
+    <div class="content">
+        <div class="room-list">
+            <h3>All Rooms</h3>
+            
+            <div class="room-item" data-room="entrance" data-track="Welcome to the Museum">
+                <div class="room-color" style="background-color: #3498db;"></div>
+                <div class="room-info">
+                    <div class="room-name">Entrance Hall</div>
+                    <div class="room-description">Welcome and orientation</div>
+                </div>
+                <span class="play-icon">▶</span>
+            </div>
+
+            <div class="room-item" data-room="ancient" data-track="Ancient Art Gallery">
+                <div class="room-color" style="background-color: #9b59b6;"></div>
+                <div class="room-info">
+                    <div class="room-name">Ancient Art Gallery</div>
+                    <div class="room-description">Artifacts from ancient civilizations</div>
+                </div>
+                <span class="play-icon">▶</span>
+            </div>
+
+            <div class="room-item" data-room="sculpture" data-track="Sculpture Hall">
+                <div class="room-color" style="background-color: #1abc9c;"></div>
+                <div class="room-info">
+                    <div class="room-name">Sculpture Hall</div>
+                    <div class="room-description">Classical and contemporary sculptures</div>
+                </div>
+                <span class="play-icon">▶</span>
+            </div>
+
+            <div class="room-item" data-room="modern" data-track="Modern Art Gallery">
+                <div class="room-color" style="background-color: #e67e22;"></div>
+                <div class="room-info">
+                    <div class="room-name">Modern Art Gallery</div>
+                    <div class="room-description">20th and 21st century artworks</div>
+                </div>
+                <span class="play-icon">▶</span>
+            </div>
+
+            <div class="room-item" data-room="special" data-track="Special Exhibition">
+                <div class="room-color" style="background-color: #e74c3c;"></div>
+                <div class="room-info">
+                    <div class="room-name">Special Exhibition</div>
+                    <div class="room-description">Temporary featured collection</div>
+                </div>
+                <span class="play-icon">▶</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="audio-player" id="audio-player">
+        <div class="track-info">
+            <span class="track-name" id="track-name">Now Playing</span>
+            <button class="close-btn" id="close-player" aria-label="Close audio player">×</button>
+        </div>
+        <audio id="audio-element" controls>
+            Your browser does not support the audio element.
+        </audio>
+    </div>
+
+    <script>
+        // Audio tracks configuration
+        // TODO: Replace placeholder URLs with actual museum audio guide files
+        // Place audio files in an 'audio/' directory and update paths accordingly
+        // Example: url: 'audio/entrance-welcome.mp3'
+        const audioTracks = {
+            entrance: {
+                name: 'Welcome to the Museum',
+                url: 'audio/entrance.mp3'
+            },
+            ancient: {
+                name: 'Ancient Art Gallery',
+                url: 'audio/ancient-art.mp3'
+            },
+            sculpture: {
+                name: 'Sculpture Hall',
+                url: 'audio/sculpture.mp3'
+            },
+            modern: {
+                name: 'Modern Art Gallery',
+                url: 'audio/modern-art.mp3'
+            },
+            special: {
+                name: 'Special Exhibition',
+                url: 'audio/special-exhibition.mp3'
+            }
+        };
+
+        // DOM elements
+        const audioPlayer = document.getElementById('audio-player');
+        const audioElement = document.getElementById('audio-element');
+        const trackNameElement = document.getElementById('track-name');
+        const closePlayerBtn = document.getElementById('close-player');
+
+        // Current playing room
+        let currentRoom = null;
+
+        // Function to play audio for a room
+        function playRoomAudio(roomId) {
+            const track = audioTracks[roomId];
+            if (!track) {
+                console.warn(`No audio track found for room: ${roomId}`);
+                return;
+            }
+
+            // Update UI
+            trackNameElement.textContent = track.name;
+            audioElement.src = track.url;
+            audioPlayer.classList.add('visible');
+
+            // Update room highlighting
+            document.querySelectorAll('.room').forEach(room => {
+                room.classList.remove('playing');
+            });
+            const activeRoom = document.getElementById(`room-${roomId}`);
+            if (activeRoom) {
+                activeRoom.classList.add('playing');
+            }
+
+            // Play audio - user must manually press play if autoplay is blocked
+            audioElement.play().catch(err => {
+                // Autoplay may be blocked by browser policy, especially on mobile
+                // The audio player controls are visible so user can manually start playback
+                console.log('Audio playback requires user interaction. Please press play.', err.message);
+            });
+
+            currentRoom = roomId;
+        }
+
+        // Function to stop audio and close player
+        function stopAudio() {
+            audioElement.pause();
+            audioElement.currentTime = 0;
+            audioPlayer.classList.remove('visible');
+            
+            document.querySelectorAll('.room').forEach(room => {
+                room.classList.remove('playing');
+            });
+            
+            currentRoom = null;
+        }
+
+        // Event listeners for map rooms
+        document.querySelectorAll('.museum-map .room').forEach(room => {
+            // Click/tap handler
+            room.addEventListener('click', (e) => {
+                const roomId = e.target.dataset.room;
+                if (roomId) {
+                    playRoomAudio(roomId);
+                }
+            });
+
+            // Keyboard accessibility
+            room.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    const roomId = e.target.dataset.room;
+                    if (roomId) {
+                        playRoomAudio(roomId);
+                    }
+                }
+            });
+        });
+
+        // Event listeners for room list items
+        document.querySelectorAll('.room-item').forEach(item => {
+            // Make room items keyboard accessible
+            item.setAttribute('tabindex', '0');
+            item.setAttribute('role', 'button');
+
+            item.addEventListener('click', (e) => {
+                const roomId = e.currentTarget.dataset.room;
+                if (roomId) {
+                    playRoomAudio(roomId);
+                }
+            });
+
+            // Keyboard accessibility for room list items
+            item.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    const roomId = e.currentTarget.dataset.room;
+                    if (roomId) {
+                        playRoomAudio(roomId);
+                    }
+                }
+            });
+        });
+
+        // Close player button
+        closePlayerBtn.addEventListener('click', stopAudio);
+
+        // Handle audio ended event
+        audioElement.addEventListener('ended', () => {
+            document.querySelectorAll('.room').forEach(room => {
+                room.classList.remove('playing');
+            });
+        });
+    </script>
+</body>
+</html>
